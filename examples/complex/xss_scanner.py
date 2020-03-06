@@ -86,7 +86,7 @@ def get_cookies(flow: http.HTTPFlow) -> Cookies:
     return {name: value for name, value in flow.request.cookies.fields}
 
 
-def find_unclaimed_URLs(body: str, requestUrl: bytes) -> None:
+def find_unclaimed_URLs(body, requestUrl):
     """ Look for unclaimed URLs in script tags and log them if found"""
     def getValue(attrs: List[Tuple[str, str]], attrName: str) -> Optional[str]:
         for name, value in attrs:
@@ -111,7 +111,7 @@ def find_unclaimed_URLs(body: str, requestUrl: bytes) -> None:
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            ctx.log.error("XSS found in %s due to unclaimed URL \"%s\"." % (requestUrl, url))
+            ctx.log.error(f"XSS found in {requestUrl} due to unclaimed URL \"{url}\".")
 
 
 def test_end_of_URL_injection(original_body: str, request_URL: str, cookies: Cookies) -> VulnData:
@@ -395,8 +395,10 @@ def get_XSS_data(body: Union[str, bytes], request_URL: str, injection_point: str
 
 # response is mitmproxy's entry point
 def response(flow: http.HTTPFlow) -> None:
+    assert flow.response
     cookies_dict = get_cookies(flow)
     resp = flow.response.get_text(strict=False)
+    assert resp
     # Example: http://xss.guru/unclaimedScriptTag.html
     find_unclaimed_URLs(resp, flow.request.url)
     results = test_end_of_URL_injection(resp, flow.request.url, cookies_dict)

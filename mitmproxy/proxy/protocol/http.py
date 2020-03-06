@@ -1,3 +1,5 @@
+import textwrap
+
 import h2.exceptions
 import time
 import enum
@@ -142,13 +144,13 @@ def validate_request_form(mode, request):
     allowed_request_forms = MODE_REQUEST_FORMS[mode]
     if request.first_line_format not in allowed_request_forms:
         if mode == HTTPMode.transparent:
-            err_message = (
+            err_message = textwrap.dedent((
                 """
                 Mitmproxy received an {} request even though it is not running
                 in regular mode. This usually indicates a misconfiguration,
                 please see the mitmproxy mode documentation for details.
                 """
-            ).format("HTTP CONNECT" if request.first_line_format == "authority" else "absolute-form")
+            )).strip().format("HTTP CONNECT" if request.first_line_format == "authority" else "absolute-form")
         else:
             err_message = "Invalid HTTP request form (expected: %s, got: %s)" % (
                 " or ".join(allowed_request_forms), request.first_line_format
@@ -263,7 +265,7 @@ class HttpLayer(base.Layer):
                 else:
                     msg = "Unexpected CONNECT request."
                     self.send_error_response(400, msg)
-                    raise exceptions.ProtocolException(msg)
+                    return False
 
             validate_request_form(self.mode, request)
             self.channel.ask("requestheaders", f)
@@ -289,9 +291,12 @@ class HttpLayer(base.Layer):
             f.request = None
             f.error = flow.Error(str(e))
             self.channel.ask("error", f)
-            raise exceptions.ProtocolException(
-                "HTTP protocol error in client request: {}".format(e)
-            ) from e
+            self.log(
+                "request",
+                "warn",
+                ["HTTP protocol error in client request: {}".format(e)]
+            )
+            return False
 
         self.log("request", "debug", [repr(request)])
 
@@ -448,8 +453,8 @@ class HttpLayer(base.Layer):
                 return False  # should never be reached
 
         except (exceptions.ProtocolException, exceptions.NetlibException) as e:
-            self.send_error_response(502, repr(e))
             if not f.response:
+                self.send_error_response(502, repr(e))
                 f.error = flow.Error(str(e))
                 self.channel.ask("error", f)
                 return False

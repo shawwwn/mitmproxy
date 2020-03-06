@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "5.0.0.dev"
+VERSION = "6.0.0.dev"
 PATHOD = "pathod " + VERSION
 MITMPROXY = "mitmproxy " + VERSION
 
@@ -21,13 +21,13 @@ def get_dev_version() -> str:
     here = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     try:
         git_describe = subprocess.check_output(
-            ['git', 'describe', '--long'],
+            ['git', 'describe', '--tags', '--long'],
             stderr=subprocess.STDOUT,
             cwd=here,
         )
-        last_tag, tag_dist, commit = git_describe.decode().strip().rsplit("-", 2)
+        last_tag, tag_dist_str, commit = git_describe.decode().strip().rsplit("-", 2)
         commit = commit.lstrip("g")[:7]
-        tag_dist = int(tag_dist)
+        tag_dist = int(tag_dist_str)
     except Exception:
         pass
     else:

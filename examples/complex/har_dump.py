@@ -87,7 +87,10 @@ def response(flow):
     }
 
     # HAR timings are integers in ms, so we re-encode the raw timings to that format.
-    timings = dict([(k, int(1000 * v)) for k, v in timings_raw.items()])
+    timings = {
+        k: int(1000 * v) if v != -1 else -1
+        for k, v in timings_raw.items()
+    }
 
     # full_time is the sum of all timings.
     # Timings set to -1 will be ignored as per spec.
@@ -96,8 +99,8 @@ def response(flow):
     started_date_time = datetime.fromtimestamp(flow.request.timestamp_start, timezone.utc).isoformat()
 
     # Response body size and encoding
-    response_body_size = len(flow.response.raw_content)
-    response_body_decoded_size = len(flow.response.content)
+    response_body_size = len(flow.response.raw_content) if flow.response.raw_content else 0
+    response_body_decoded_size = len(flow.response.content) if flow.response.content else 0
     response_body_compression = response_body_decoded_size - response_body_size
 
     entry = {

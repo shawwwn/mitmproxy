@@ -38,7 +38,8 @@ class FlowViewHeader(urwid.WidgetWrap):
                 False,
                 extended=True,
                 hostheader=self.master.options.showhost,
-                max_url_len=cols,
+                cols=cols,
+                layout=self.master.options.console_flowlist_layout
             )
         else:
             self._w = urwid.Pile([])
@@ -119,7 +120,7 @@ class FlowDetails(tabs.Tabs):
         message = self._get_content_view_message
         self._get_content_view_message = None
         description, lines, error = contentviews.get_message_content_view(
-            viewmode, message
+            viewmode, message, self.flow
         )
         if error:
             self.master.log.debug(error)

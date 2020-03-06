@@ -1,26 +1,26 @@
+import asyncio
 import hashlib
 import json
 import logging
 import os.path
 import re
 from io import BytesIO
-import asyncio
-import functools
-import base64
+from typing import ClassVar, Optional
 
-import mitmproxy.flow
 import tornado.escape
 import tornado.web
 import tornado.websocket
+
+import mitmproxy.flow
+import mitmproxy.tools.web.master  # noqa
 from mitmproxy import contentviews
 from mitmproxy import exceptions
 from mitmproxy import flowfilter
 from mitmproxy import http
 from mitmproxy import io
 from mitmproxy import log
-from mitmproxy import version
 from mitmproxy import optmanager
-import mitmproxy.tools.web.master # noqa
+from mitmproxy import version
 
 
 def flow_to_json(flow: mitmproxy.flow.Flow) -> dict:
@@ -51,6 +51,8 @@ def flow_to_json(flow: mitmproxy.flow.Flow) -> dict:
         f["error"] = flow.error.get_state()
 
     if isinstance(flow, http.HTTPFlow):
+        content_length: Optional[int]
+        content_hash: Optional[str]
         if flow.request:
             if flow.request.raw_content:
                 content_length = len(flow.request.raw_content)
@@ -142,6 +144,8 @@ def basic_auth(f):
 
 
 class RequestHandler(tornado.web.RequestHandler):
+    application: "Application"
+
     def write(self, chunk):
         # Writing arrays on the top level is ok nowadays.
         # http://flask.pocoo.org/docs/0.11/security/#json-security
@@ -225,7 +229,7 @@ class FilterHelp(RequestHandler):
 
 class WebSocketEventBroadcaster(tornado.websocket.WebSocketHandler):
     # raise an error if inherited class doesn't specify its own instance.
-    connections: set = None
+    connections: ClassVar[set]
 
     def open(self):
         self.connections.add(self)
@@ -245,7 +249,7 @@ class WebSocketEventBroadcaster(tornado.websocket.WebSocketHandler):
 
 
 class ClientConnection(WebSocketEventBroadcaster):
-    connections: set = set()
+    connections: ClassVar[set] = set()
 
 
 class Flows(RequestHandler):
@@ -425,7 +429,7 @@ class FlowContentView(RequestHandler):
         message = getattr(self.flow, message)
 
         description, lines, error = contentviews.get_message_content_view(
-            content_view.replace('_', ' '), message
+            content_view.replace('_', ' '), message, self.flow
         )
         #        if error:
         #           add event log
@@ -467,7 +471,7 @@ class Settings(RequestHandler):
     def put(self):
         update = self.json
         option_whitelist = {
-            "intercept", "showhost", "upstream_cert",
+            "intercept", "showhost", "upstream_cert", "ssl_insecure",
             "rawtcp", "http2", "websocket", "anticache", "anticomp",
             "stickycookie", "stickyauth", "stream_large_bodies"
         }
@@ -508,7 +512,9 @@ class DnsRebind(RequestHandler):
 
 
 class Application(tornado.web.Application):
-    def __init__(self, master, debug):
+    master: "mitmproxy.tools.web.master.WebMaster"
+
+    def __init__(self, master: "mitmproxy.tools.web.master.WebMaster", debug: bool) -> None:
         self.master = master
         super().__init__(
             default_host="dns-rebind-protection",
