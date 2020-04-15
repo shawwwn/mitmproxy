@@ -6,6 +6,8 @@ import os.path
 import re
 from io import BytesIO
 from typing import ClassVar, Optional
+import functools
+import base64
 
 import tornado.escape
 import tornado.web
